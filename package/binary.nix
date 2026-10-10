@@ -42,9 +42,6 @@ let
               hash = depsHash;
             };
             nativeBuildInputs = nativeBuildInputs ++ [ zig ];
-            postConfigure = ''
-              ln -s ${final.zigDeps} "$ZIG_GLOBAL_CACHE_DIR/p"
-            '';
           }
           // lib.removeAttrs args [
             "stdenv"
