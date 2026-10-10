@@ -29,5 +29,6 @@ in
     TERM=dumb zig build --fetch
     mkdir -p "$ZIG_GLOBAL_CACHE_DIR/p" # in case there were no deps to fetch
     cp -r "$ZIG_GLOBAL_CACHE_DIR/p" "$out"
-    find . > "$out/filelist"
+    find . > filelist
+    cp filelist "$out"
   ''
