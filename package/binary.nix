@@ -8,7 +8,8 @@
   zigSource,
   zigVersion,
   zls,
-}: let
+}:
+let
   zig = stdenvNoCC.mkDerivation (finalAttrs: {
     pname = "zig";
     version = zigVersion;
@@ -19,16 +20,18 @@
     };
     passthru = {
       inherit zls;
-      fetchDeps = callPackage ./fetch-deps.nix {inherit zig;};
+      fetchDeps = callPackage ./fetch-deps.nix { inherit zig; };
 
-      makePackage = {
-        stdenv ? stdenvNoCC,
-        src,
-        depsHash ? lib.fakeHash,
-        nativeBuildInputs ? [],
-        ...
-      } @ args:
-        stdenv.mkDerivation (final:
+      makePackage =
+        {
+          stdenv ? stdenvNoCC,
+          src,
+          depsHash ? lib.fakeHash,
+          nativeBuildInputs ? [ ],
+          ...
+        }@args:
+        stdenv.mkDerivation (
+          final:
           {
             inherit src;
             zigDeps = args.zigDeps or finalAttrs.passthru.fetchDeps {
@@ -38,9 +41,17 @@
               version = final.version or null;
               hash = depsHash;
             };
-            nativeBuildInputs = nativeBuildInputs ++ [zig];
+            nativeBuildInputs = nativeBuildInputs ++ [ zig ];
+            postConfigure = ''
+              ln -s ${final.zigDeps} "$ZIG_GLOBAL_CACHE_DIR/p"
+            '';
           }
-          // lib.removeAttrs args ["stdenv" "nativeBuildInputs" "depsHash"]);
+          // lib.removeAttrs args [
+            "stdenv"
+            "nativeBuildInputs"
+            "depsHash"
+          ]
+        );
     };
 
     src = zigSource;
@@ -51,10 +62,7 @@
 
     # zig-flake's setup hook only supports Zig 0.12 or later due to using `--release`
     # TODO: print an error in the setup hook, rather than silently disabling it
-    setupHook =
-      if (lib.versionAtLeast zig.version "0.12")
-      then ./setup-hook.sh
-      else null;
+    setupHook = if (lib.versionAtLeast zig.version "0.12") then ./setup-hook.sh else null;
 
     postPatch =
       # Zig's build looks at /usr/bin/env to find dynamic linking info. This doesn't
@@ -69,11 +77,13 @@
       # Note that while this fix is already merged upstream and will be included in 0.14+,
       # we can't fetchpatch the upstream commit as it won't cleanly apply on older versions,
       # so we substitute the paths instead.
-      + lib.optionalString (stdenvNoCC.hostPlatform.isDarwin && lib.versionOlder finalAttrs.version "0.14") ''
-        substituteInPlace lib/std/zig/system/darwin.zig \
-          --replace /usr/bin/xcrun xcrun \
-          --replace /usr/bin/xcode-select xcode-select
-      '';
+      +
+        lib.optionalString (stdenvNoCC.hostPlatform.isDarwin && lib.versionOlder finalAttrs.version "0.14")
+          ''
+            substituteInPlace lib/std/zig/system/darwin.zig \
+              --replace /usr/bin/xcrun xcrun \
+              --replace /usr/bin/xcode-select xcode-select
+          '';
 
     installPhase = ''
       install -Dt "$out/bin" zig
@@ -81,4 +91,4 @@
     '';
   });
 in
-  zig
+zig
